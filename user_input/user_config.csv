@@ -1,0 +1,47 @@
+group,parameter,value,default,type,options,description,notes
+#--- GROUP 1: DATA SOURCE ---,,,,,,,
+1_data,report_type,Legacy,Legacy,string,"Legacy | Disaggregated | Financial","Which CFTC COT report format to use","Legacy = recommended for all commodities and metals. Disaggregated = separates Managed Money from other Large Specs (hedge funds/CTAs). Financial = for currencies/bonds/indices (uses Dealer + Leveraged Funds)."
+1_data,include_options,False,False,bool,"True | False","Include options positions on top of futures positions","LW observed no significant difference. Keep False for cleaner analysis."
+1_data,data_years_history,8,5,int,1-40,"How many years of historical data to load","More years = more accurate long-term percentile ranks but slower first load. Minimum 2 recommended. Historical data cached locally after first download."
+1_data,cache_enabled,True,True,bool,"True | False","Cache downloaded CFTC data locally to avoid re-downloading","Strongly recommended. Raw data saved as parquet files in data/cache/."
+1_data,auto_refresh,True,True,bool,"True | False","Automatically download latest CFTC data when running (checks if current week is present)","CFTC publishes every Friday at 3:30pm ET. Data reports Tuesday positions (3-day lag)."
+#--- GROUP 2: ANALYSIS METHOD ---,,,,,,,
+2_analysis,analysis_method,LW_Index,LW_Index,string,"LW_Index | Percentile | WillCo","Core calculation method for the COT Index","LW_Index = Original Larry Williams method. Includes current bar in range. Always 0-100%. Percentile = Professional approach. Excludes current bar. Can exceed 0-100% at extremes (-20 to +120). WillCo = display both LW_Index (solid) and Percentile (dashed) simultaneously on the same chart."
+2_analysis,lookback_mode,Auto,Auto,string,"Auto | Manual","How to determine the historical lookback window","Auto applies asset-class-specific periods (LW recommendation). Manual uses primary_lookback_weeks for all instruments."
+2_analysis,primary_lookback_weeks,26,26,int,4-520,"Lookback period in weeks for primary index (used when lookback_mode=Manual)","LW default is 26 weeks (6 months). Auto mode overrides this per asset class: Metals=13w Energies=13w Indices=13w Bonds=52w FX=26w Crypto=26w."
+2_analysis,secondary_lookback_weeks,52,52,int,4-520,"Lookback period for secondary index (always shown alongside primary for context)","Secondary index is always shown as a comparison. 52w = 1 year is a good reference."
+2_analysis,show_secondary_lookback,True,True,bool,"True | False","Show secondary lookback index alongside primary in output","Helps identify whether a signal is short-term or confirmed across longer history."
+2_analysis,smoothing_method,None,None,string,"None | SMA | EMA | WMA | RMA","Moving average type applied to net positions before index calculation","None = best for catching extremes quickly. SMA = balanced. EMA = more weight to recent data. RMA = Wilder smoothing (used in RSI). Smoothing reduces noise but delays signals."
+2_analysis,smoothing_period,4,4,int,2-20,"Number of periods for the smoothing moving average (ignored if smoothing_method=None)","Default 4 = good balance between noise reduction and responsiveness."
+#--- GROUP 3: SIGNAL THRESHOLDS ---,,,,,,,
+3_signals,heavy_buyers_level,74,74,int,50-100,"Commercial index % above which Commercials are considered extreme long (heavy buyers)","tradeviZion default = 74%. Our v5 strict LW = 90%. Lower = more signals but less reliable. Raise to 80-90% for higher-confidence setups only."
+3_signals,heavy_sellers_level,26,26,int,0-50,"Commercial index % below which Commercials are considered extreme short (heavy sellers)","tradeviZion default = 26%. Our v5 strict LW = 10%. Must be < heavy_buyers_level."
+3_signals,confluence_enabled,True,True,bool,"True | False","Detect and flag Confluence signals (Commercials AND Large Specs at opposite extremes simultaneously)","LW highest-conviction setup. Requires both groups at extremes at the same time."
+3_signals,trend_weighting_enabled,True,True,bool,"True | False","Adjust signal strength based on price trend alignment (requires price data via yfinance)","When enabled: signals aligned with price trend are stronger; counter-trend signals require more confirmation. Disable if you dont want price data dependency."
+3_signals,trend_ma_period,40,40,int,1-200,"Moving average period used to determine price trend direction (used if trend_weighting_enabled=True)","Price above rising MA = uptrend. Price below falling MA = downtrend. Default 40 weeks."
+#--- GROUP 4: HISTORICAL COMPARISON ---,,,,,,,
+4_historical,show_historical_table,True,True,bool,"True | False","Show historical percentile rank table (how current positioning compares to past periods)","Shows where current WillCo/Index ranks across multiple lookback windows."
+4_historical,historical_periods,1M|3M|6M|1Y|3Y|All,1M|3M|6M|1Y|3Y|All,list,"Any combination of: 1M|3M|6M|1Y|3Y|All","Which historical periods to include in the comparison table (pipe-separated)","Use All only if data_years_history covers that range. 1M = 4 weeks approx."
+4_historical,trading_days_mode,Weekdays,Weekdays,string,"Weekdays | 24_7","How to count days when computing historical periods","Use Weekdays for all standard futures. Use 24_7 for crypto."
+#--- GROUP 5: OI ANALYSIS ---,,,,,,,
+5_oi,show_oi_analysis,True,True,bool,"True | False","Show Open Interest analysis section (total OI change + who is driving changes)","LW key insight: WHO drives OI changes matters more than the change itself."
+5_oi,show_concentration,True,True,bool,"True | False","Show Top-4 and Top-8 trader concentration (% of OI controlled by largest traders)","High concentration (>30%) = fewer dominant players = potential volatility."
+#--- GROUP 6: MARKET STATE & SIGNALS ---,,,,,,,
+6_market_state,show_market_state,True,True,bool,"True | False","Show overall Market State label (STRONG BULLISH to STRONG BEARISH)","Score-based composite of Commercial positioning + Spec alignment + OI driver."
+6_market_state,show_best_setup,True,True,bool,"True | False","Show which signal combination has the highest historical accuracy for this instrument","Combinations: Comm+Spec+OI (best) > Comm+Spec > Comm+OI > Comm alone."
+6_market_state,show_trading_tips,True,True,bool,"True | False","Show context-aware trading tip text based on current conditions","Explains current setup in plain language."
+#--- GROUP 7: TREND ANALYSIS ---,,,,,,,
+7_trend,show_trend_analysis,True,True,bool,"True | False","Show trend analysis section (direction strength consistency cumulative change ROC vs MA)","Useful for confirming whether COT signal aligns with momentum."
+7_trend,cum_change_periods,4W|13W|26W,4W|13W|26W,list,"Any of: 4W|13W|26W","Which cumulative change periods to display (pipe-separated)","4W = 1 month. 13W = 1 quarter. 26W = 6 months."
+#--- GROUP 8: MARKET MAKER ACTIVITY ---,,,,,,,
+8_mm,show_market_maker,True,True,bool,"True | False","Show Market Maker (spreading) activity section","Spreading = simultaneous long and short positions in different contract months. High spreading = market makers hedging = expect volatility."
+#--- GROUP 9: OUTPUT FORMAT ---,,,,,,,
+9_output,output_mode,both,terminal,string,"terminal | csv | both","Where to send results","terminal = Rich colored tables in console. csv = save results to output/ folder. both = do both."
+9_output,output_folder,output,output,string,,"Folder path (relative to project root) where CSV output files are saved","Only used when output_mode = csv or both."
+9_output,display_mode,Full,Full,string,"Full | Compact","Level of detail in the output tables","Full = all sections. Compact = essential fields only (Market State Entry CommIndex OI Signal Trend)."
+9_output,color_theme,Dark,Dark,string,"Dark | Light","Terminal color theme for Rich tables","Dark = white text on dark background. Light = dark text."
+9_output,show_chart,True,False,bool,"True | False","Save interactive HTML chart (Plotly) to output folder","Creates a COT chart per instrument. Opens in browser. Requires plotly installed."
+9_output,chart_type,All,COT_Index,string,"COT_Report | COT_Index | COT_Proximity | Figure_A | Figure_B | Figure_B_Groups | Figure_C | Figure_D | Figure_E | All","Which chart style(s) to generate","Figure_C = price + 52w OI stochastic. Figure_B_Groups = Williams-style chart for all 3 groups. Figure_A = price + CFTC %OI + Pct_Long. COT_Report = raw net positions. COT_Index = normalized index. COT_Proximity = price-based proxy. All = generate all."
+9_output,chart_format,png,html,string,"png | html | both","Output format for charts","png = static image (requires kaleido). html = interactive Plotly. both = generate both formats."
+9_output,proximity_lookback_weeks,13,13,int,4-520,"Lookback window (weeks) used for the COT Proximity price-range calculation","Defaults to same as primary_lookback_weeks. Adjust per asset class if needed."
+9_output,price_source,yfinance,yfinance,string,"yfinance","Price data provider for COT Proximity chart","Only yfinance is supported currently. Ensure the ticker column is set in instruments.csv."
