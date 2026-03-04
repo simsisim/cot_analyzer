@@ -6,7 +6,7 @@ True,HG - Copper,85692,Metal,,,HG=F,Copper Futures (COMEX),Industrial metal. Goo
 True,PL - Platinum,76651,Metal,,,PL=F,Platinum Futures (NYMEX),Smaller market than Gold/Silver. Useful for precious metals divergence analysis.
 True,PA - Palladium,75651,Metal,,,PA=F,Palladium Futures (NYMEX),Small market. Used in catalytic converters. Can have high volatility.
 False,MGC - Micro Gold,88695,Metal,,,,Micro Gold Futures (COMEX),Same COT data as GC Gold. Set to False to avoid duplicate analysis.
-True,ALI - Aluminum,191651,Metal,,,,Aluminum Futures (COMEX),Industrial metal. Set to True if trading aluminum.
+True,ALI - Aluminum,191651,Metal,,,ALI=F,Aluminum Futures (COMEX),Industrial metal. Set to True if trading aluminum.
 #--- ENERGY ---,,,,,,,,
 True,CL - Crude Oil,67651,Energy,,,CL=F,Crude Oil WTI Futures (NYMEX),High open interest. Commercials = refiners and oil companies.
 True,NG - Natural Gas,23651,Energy,,,NG=F,Natural Gas Futures (NYMEX),Seasonal patterns are especially important for Natural Gas.
