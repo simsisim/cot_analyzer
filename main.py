@@ -36,10 +36,10 @@ from cot_analyzer.data.price_fetcher import fetch_price_data
 from cot_analyzer.analysis.calculator import run_calculations, compute_historical_ranks
 from cot_analyzer.analysis.proximity import compute_proximity
 from cot_analyzer.analysis.signals import run_signals
-from cot_analyzer.display.tables import display_instrument
+from cot_analyzer.display.tables import display_instrument, set_console as _set_tables_console
 from cot_analyzer.display.exporter import export_results
 
-console = Console()
+console = Console(record=True)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ def _process_instrument(
         console.print(f"[red]CALC ERROR {instrument.name}: {exc}[/red]")
         return None
 
-    # Price data — needed for Proximity chart and Figure A candlestick
+    # Price data — needed for Proximity chart and Figure A-E candlestick (weekly)
     needs_price = cfg.chart_type in ("COT_Proximity", "Figure_A", "Figure_B", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E", "All")
     df_price = pd.DataFrame()
     if needs_price and instrument.ticker:
@@ -112,6 +112,19 @@ def _process_instrument(
             years_history = cfg.data_years_history,
             cache_dir     = cache_dir,
             auto_refresh  = cfg.auto_refresh,
+        )
+
+    # Daily price data — needed for Figure_F (ProGo indicator)
+    needs_daily = cfg.chart_type in ("Figure_F", "All")
+    df_price_daily = pd.DataFrame()
+    if needs_daily and instrument.ticker:
+        cache_dir = project_root / "data" / "cache"
+        df_price_daily = fetch_price_data(
+            ticker        = instrument.ticker,
+            years_history = cfg.data_years_history,
+            cache_dir     = cache_dir,
+            auto_refresh  = cfg.auto_refresh,
+            interval      = "1d",
         )
 
     if cfg.chart_type in ("COT_Proximity", "All") and not df_price.empty:
@@ -141,12 +154,13 @@ def _process_instrument(
     snap["_market_state"] = signals.get("market_state", "")
 
     return {
-        "name":       instrument.name,
-        "snap":       snap,
-        "signals":    signals,
-        "historical": historical,
-        "df":         df,
-        "df_price":   df_price,
+        "name":           instrument.name,
+        "snap":           snap,
+        "signals":        signals,
+        "historical":     historical,
+        "df":             df,
+        "df_price":       df_price,
+        "df_price_daily": df_price_daily,
     }
 
 
@@ -175,11 +189,30 @@ def _maybe_save_chart(result: dict, cfg: AppConfig) -> None:
             historical      = result.get("historical", {}),
             proximity_lb    = cfg.proximity_lookback_weeks,
             df_price        = result.get("df_price"),
+            df_price_daily  = result.get("df_price_daily"),
         )
         for p in paths:
             console.print(f"[dim]Chart saved → {p}[/dim]")
     except Exception as exc:
         console.print(f"[yellow]Chart generation failed: {exc}[/yellow]")
+
+
+# ─────────────────────────────────────────────────────────────
+# TEXT / HTML REPORT EXPORT
+# ─────────────────────────────────────────────────────────────
+
+def _export_txt_report(cons: Console, output_folder: Path, fmt: str) -> None:
+    out = Path(output_folder)
+    out.mkdir(parents=True, exist_ok=True)
+    if fmt in ("txt", "both"):
+        path = out / "cot_report.txt"
+        path.write_text(cons.export_text(clear=False), encoding="utf-8")
+        cons.print(f"[dim]Text report → {path}[/dim]")
+    if fmt in ("html", "both"):
+        from rich.terminal_theme import MONOKAI
+        path = out / "cot_report.html"
+        path.write_text(cons.export_html(theme=MONOKAI), encoding="utf-8")
+        cons.print(f"[dim]HTML report → {path}[/dim]")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -210,6 +243,9 @@ def main() -> int:
     except (FileNotFoundError, ValueError) as exc:
         console.print(f"[red bold]Config error:[/red bold] {exc}")
         return 1
+
+    # Share the recording console with tables.py so all output is captured together
+    _set_tables_console(console)
 
     console.print(
         f"\n[bold white]COT Analyzer[/bold white]  "
@@ -246,6 +282,19 @@ def main() -> int:
 
     # ── Export CSV ───────────────────────────────────────────
     export_results(results, cfg.output_mode, cfg.output_folder)
+
+    # ── LaTeX PDF report ─────────────────────────────────────
+    if cfg.generate_pdf_report:
+        try:
+            from cot_analyzer.display.latex_report import generate_latex_report
+            pdf_path = generate_latex_report(results, cfg, cfg.output_folder)
+            console.print(f"[dim]PDF report → {pdf_path}[/dim]")
+        except Exception as exc:
+            console.print(f"[yellow]PDF report failed: {exc}[/yellow]")
+
+    # ── Text / HTML report ────────────────────────────────────
+    if cfg.generate_txt_report:
+        _export_txt_report(console, cfg.output_folder, cfg.txt_report_format)
 
     console.print(f"\n[dim]Done — {len(results)}/{len(cfg.instruments)} instruments processed.[/dim]\n")
     return 0

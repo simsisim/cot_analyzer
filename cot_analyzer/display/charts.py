@@ -1491,6 +1491,177 @@ def _build_figure_e(df, snap, name, df_price, go, make_subplots):
 
 
 # ─────────────────────────────────────────────────────────────
+# FIGURE F — ProGo Professional (Larry Williams / Jake Bernstein)
+# ─────────────────────────────────────────────────────────────
+
+def _progo(df_price: "pd.DataFrame", length: int) -> "pd.DataFrame":
+    """
+    Compute ProGo indicator on daily OHLCV data.
+
+    pro      = close - open          (intraday: professional / smart money)
+    amateurs = open - close.shift(1) (overnight gap: public / retail)
+    s_pro    = SMA(pro, length)
+    s_amat   = SMA(amateurs, length)
+
+    Returns DataFrame with columns: date, s_pro, s_amat
+    """
+    d = df_price.copy()
+    d["pro"]      = d["close"] - d["open"]
+    d["amateurs"] = d["open"]  - d["close"].shift(1)
+    d["s_pro"]    = d["pro"].rolling(length).mean()
+    d["s_amat"]   = d["amateurs"].rolling(length).mean()
+    return d[["date", "s_pro", "s_amat"]].dropna()
+
+
+def _build_figure_f(df, snap, name, df_price_daily, go, make_subplots):
+    """
+    3-row chart:
+      Row 1 — Daily price candlestick
+      Row 2 — ProGo Professional(14)   [Jake Bernstein short-term]
+      Row 3 — ProGo Professional(57)   [Jake Bernstein daily trend]
+
+    ProGo indicator by Larry Williams:
+      pro      = close - open         → smart-money / professional intraday move
+      amateurs = open - close[1]      → retail / overnight gap
+      s_pro_N  = SMA(pro, N)
+      s_amat_N = SMA(amateurs, N)
+
+    Color convention (matches Pine Script):
+      s_pro  line  → orange  (#FF9800)
+      s_amat line  → blue    (#2196F3)
+      Background   → green when s_pro > s_amat AND s_pro > 0
+                   → red   when s_pro < s_amat AND s_pro < 0
+    """
+    has_price = df_price_daily is not None and not df_price_daily.empty
+    req = {"date", "open", "high", "low", "close"}
+
+    fig = make_subplots(
+        rows=3, cols=1,
+        row_heights=[0.45, 0.275, 0.275],
+        vertical_spacing=0.04,
+        subplot_titles=[
+            f"{name} — Daily Price",
+            "ProGo Professional(14)  ·  short-term",
+            "ProGo Professional(57)  ·  daily trend  (Jake Bernstein)",
+        ],
+        shared_xaxes=True,
+    )
+
+    # ── Row 1: Candlestick ────────────────────────────────────
+    if has_price and req.issubset(df_price_daily.columns):
+        dates = df_price_daily["date"].dt.strftime("%Y-%m-%d")
+        fig.add_trace(go.Candlestick(
+            x=dates,
+            open=df_price_daily["open"],
+            high=df_price_daily["high"],
+            low=df_price_daily["low"],
+            close=df_price_daily["close"],
+            name="Price",
+            increasing_line_color=_C_BULL,
+            decreasing_line_color=_C_BEAR,
+            showlegend=False,
+        ), row=1, col=1)
+    else:
+        fig.add_annotation(
+            text="No daily price data — set 'ticker' in instruments.csv",
+            xref="paper", yref="paper", x=0.5, y=0.75,
+            showarrow=False, font=dict(color="#aaaaaa", size=12),
+        )
+
+    # ── Rows 2 & 3: ProGo panels ─────────────────────────────
+    if has_price and req.issubset(df_price_daily.columns):
+        for row, length in ((2, 14), (3, 57)):
+            pg = _progo(df_price_daily, length)
+            if pg.empty:
+                continue
+
+            dates  = pg["date"].dt.strftime("%Y-%m-%d")
+            s_pro  = pg["s_pro"]
+            s_amat = pg["s_amat"]
+
+            # Background shading: shape per bar segment
+            for i in range(1, len(pg)):
+                p = s_pro.iloc[i]
+                a = s_amat.iloc[i]
+                if p > a and p > 0:
+                    bg_color = "rgba(38,166,154,0.15)"   # green tint
+                elif p < a and p < 0:
+                    bg_color = "rgba(239,83,80,0.15)"    # red tint
+                else:
+                    continue
+                fig.add_vrect(
+                    x0=dates.iloc[i - 1], x1=dates.iloc[i],
+                    fillcolor=bg_color, opacity=1.0,
+                    layer="below", line_width=0,
+                    row=row, col=1,
+                )
+
+            # Zero line
+            fig.add_hline(y=0, line_color="rgba(255,255,255,0.3)",
+                          line_dash="dot", row=row, col=1)
+
+            # s_pro line (orange — professionals)
+            fig.add_trace(go.Scatter(
+                x=dates, y=s_pro,
+                mode="lines",
+                name=f"Pro({length})",
+                line=dict(color="#FF9800", width=1.5),
+                showlegend=True,
+            ), row=row, col=1)
+
+            # s_amat line (blue — amateurs/retail)
+            fig.add_trace(go.Scatter(
+                x=dates, y=s_amat,
+                mode="lines",
+                name=f"Amat({length})",
+                line=dict(color="#2196F3", width=1.5),
+                showlegend=True,
+            ), row=row, col=1)
+
+            # Current-value labels
+            if len(pg):
+                _val_annotation(fig, dates.iloc[-1], float(s_pro.iloc[-1]),
+                                f"{s_pro.iloc[-1]:.2f}", "#FF9800", row, 1)
+                _val_annotation(fig, dates.iloc[-1], float(s_amat.iloc[-1]),
+                                f"{s_amat.iloc[-1]:.2f}", "#2196F3", row, 1)
+
+    # ── Layout ────────────────────────────────────────────────
+    date  = snap.get("date", "")
+    state = snap.get("_market_state", "")
+    fig.update_layout(
+        title=dict(
+            text=(f"Figure F  ·  {name}  ·  {date}  ·  {state}  "
+                  "·  ProGo Professional  ·  orange=Pro / blue=Amat  "
+                  "·  green bg: Pro>Amat & Pro>0  ·  red bg: Pro<Amat & Pro<0"),
+            font=dict(size=12, color="#cccccc"), x=0.01,
+        ),
+        template="plotly_dark",
+        paper_bgcolor=_BG,
+        plot_bgcolor=_PANEL,
+        hovermode="x unified",
+        height=1000,
+        width=1400,
+        margin=dict(l=60, r=80, t=70, b=55),
+    )
+
+    fig.update_xaxes(rangeslider_visible=False)
+    fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)")
+    fig.update_yaxes(title_text="Price",     row=1, col=1)
+    fig.update_yaxes(title_text="ProGo(14)", row=2, col=1)
+    fig.update_yaxes(title_text="ProGo(57)", row=3, col=1)
+
+    fig.add_annotation(
+        text="ProGo by Larry Williams  ·  Pro = close − open (intraday smart money)  "
+             "·  Amat = open − prev_close (overnight retail gap)  "
+             "·  Parameter 57 recommended by Jake Bernstein for daily charts",
+        xref="paper", yref="paper", x=0.01, y=-0.03,
+        showarrow=False, font=dict(color="#666666", size=9), align="left",
+    )
+
+    return fig
+
+
+# ─────────────────────────────────────────────────────────────
 # PUBLIC API
 # ─────────────────────────────────────────────────────────────
 
@@ -1509,12 +1680,15 @@ def save_chart(
     historical: dict | None = None,
     proximity_lb: int = 13,
     df_price: pd.DataFrame | None = None,
+    df_price_daily: pd.DataFrame | None = None,
 ) -> list[Path]:
     """
     Generate and save chart(s) for one instrument.
 
-    chart_type   : 'COT_Report' | 'COT_Index' | 'COT_Proximity' | 'Figure_A' | 'All'
+    chart_type   : 'COT_Report' | 'COT_Index' | 'COT_Proximity' | 'Figure_A' | ... | 'Figure_F' | 'All'
     chart_format : 'png' | 'html' | 'both'
+    df_price       : weekly OHLCV (for COT_Proximity, Figure_A-E)
+    df_price_daily : daily  OHLCV (for Figure_F ProGo)
 
     Returns list of saved Path objects.
     """
@@ -1524,14 +1698,14 @@ def save_chart(
     except ImportError:
         raise ImportError("plotly is required. Install with: pip install plotly")
 
-    charts_dir = output_folder / "charts"
-    charts_dir.mkdir(parents=True, exist_ok=True)
     safe = _sanitize(instrument_name)
+    charts_dir = output_folder / "charts" / safe
+    charts_dir.mkdir(parents=True, exist_ok=True)
     historical = historical or {}
     saved: list[Path] = []
 
     modes = (
-        ["COT_Report", "COT_Index", "COT_Proximity", "Figure_A", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E"]
+        ["COT_Report", "COT_Index", "COT_Proximity", "Figure_A", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E", "Figure_F"]
         if chart_type == "All" else [chart_type]
     )
 
@@ -1579,6 +1753,11 @@ def save_chart(
                 df, snap, instrument_name, df_price, go, make_subplots,
             )
 
+        elif mode == "Figure_F":
+            fig = _build_figure_f(
+                df, snap, instrument_name, df_price_daily, go, make_subplots,
+            )
+
         elif mode == "Figure_B_Groups":
             # Generate one file per trader group
             for grp in _GROUP_DEFS:
@@ -1598,6 +1777,15 @@ def save_chart(
                         raise RuntimeError(
                             f"PNG export failed: {exc}. "
                             "Install kaleido: pip install kaleido"
+                        ) from exc
+                    saved.append(out_path)
+                if chart_format in ("svg", "both"):
+                    out_path = charts_dir / f"{safe}_{slug_g}.svg"
+                    try:
+                        fig_g.write_image(str(out_path), format="svg", width=1400, height=1200)
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"SVG export failed: {exc}. Install kaleido."
                         ) from exc
                     saved.append(out_path)
             continue   # skip the generic export block below
@@ -1626,6 +1814,8 @@ def save_chart(
                 png_height = 1000
             elif mode == "Figure_E":
                 png_height = 1050
+            elif mode == "Figure_F":
+                png_height = 1000
             else:
                 png_height = 900
             try:
@@ -1634,6 +1824,30 @@ def save_chart(
                 raise RuntimeError(
                     f"PNG export failed: {exc}. "
                     "Install kaleido: pip install kaleido"
+                ) from exc
+            saved.append(out_path)
+
+        if chart_format in ("svg", "both"):
+            out_path = charts_dir / f"{safe}_{slug}.svg"
+            if mode == "Figure_A":
+                svg_height = 1300
+            elif mode in ("Figure_B", "Figure_B_Groups"):
+                svg_height = 1200
+            elif mode == "Figure_C":
+                svg_height = 1500
+            elif mode == "Figure_D":
+                svg_height = 1000
+            elif mode == "Figure_E":
+                svg_height = 1050
+            elif mode == "Figure_F":
+                svg_height = 1000
+            else:
+                svg_height = 900
+            try:
+                fig.write_image(str(out_path), format="svg", width=1400, height=svg_height)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"SVG export failed: {exc}. Install kaleido."
                 ) from exc
             saved.append(out_path)
 

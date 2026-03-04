@@ -52,8 +52,8 @@ def _build_col_map(report_type: str) -> dict[str, str]:
 
 
 def _normalise_code(code: str) -> str:
-    """Strip whitespace and uppercase for comparison."""
-    return str(code).strip().upper()
+    """Strip whitespace, uppercase, and zero-pad to 6 chars for comparison."""
+    return str(code).strip().upper().zfill(6)
 
 
 def filter_instrument(

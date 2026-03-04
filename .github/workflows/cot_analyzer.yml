@@ -11,6 +11,9 @@ on:
   schedule:
     - cron: '30 21 * * 5'  # every Friday 21:30 UTC
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -39,15 +42,26 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── 4. Compute week key ─────────────────────────────────
+      # ── 4. System libs for kaleido (PNG chart export) ───────
+      #    kaleido bundles Chromium but needs these shared libs on
+      #    a bare Ubuntu runner to render PNG/SVG charts
+      - name: Install kaleido system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgconf-2-4 libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
+            libxdamage1 libxfixes3 libxrandr2 libgbm1
+
+      # ── 5. Compute week key ─────────────────────────────────
       #    Used to namespace the CFTC cache and artifact names
       - name: Set week identifier
         id: date
         run: |
-          echo "year=$(date +%Y)"   >> $GITHUB_OUTPUT
-          echo "week=$(date +%V)"   >> $GITHUB_OUTPUT
+          echo "year=$(date +%Y)" >> $GITHUB_OUTPUT
+          echo "week=$(date +%V)"  >> $GITHUB_OUTPUT
 
-      # ── 5. CFTC parquet cache ────────────────────────────────
+      # ── 6. CFTC parquet cache ────────────────────────────────
       #    22 MB of yearly parquet files; only the current year
       #    file changes on each CFTC publish.
       #    Primary key  : cot-data-YYYY-WW  → miss once per week, hit on re-runs
@@ -60,15 +74,16 @@ jobs:
           restore-keys: |
             cot-data-
 
-      # ── 6. Run ──────────────────────────────────────────────
+      # ── 7. Run ──────────────────────────────────────────────
       - name: Run COT Analyzer
         run: PYTHONPATH=. python main.py
 
-      # ── 7. Upload output as artifact ────────────────────────
-      #    Contains: output/charts/*.png  and  output/summary.csv
+      # ── 8. Upload output as artifact ────────────────────────
+      #    Contains: output/charts/*.png  output/summary.csv  output/cot_report.*
       #    Artifact name includes year + ISO week for easy identification
-      #    Retained for 90 days (GitHub default)
+      #    if: always() → artifacts are saved even when the run step fails
       - name: Upload output artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cot-output-${{ steps.date.outputs.year }}-w${{ steps.date.outputs.week }}

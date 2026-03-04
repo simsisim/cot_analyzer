@@ -82,9 +82,12 @@ class AppConfig:
     color_theme: str                   # Dark | Light
     show_chart: bool
     chart_type: str                    # COT_Report | COT_Index | COT_Proximity | Figure_A | All
-    chart_format: str                  # png | html | both
+    chart_format: str                  # png | html | svg | both
     proximity_lookback_weeks: int
     price_source: str                  # yfinance
+    generate_pdf_report: bool
+    generate_txt_report: bool = False
+    txt_report_format: str = "txt"
 
     # Instruments (populated by load_instruments)
     instruments: list[InstrumentConfig] = field(default_factory=list)
@@ -233,6 +236,9 @@ def load_config(project_root: Path) -> AppConfig:
         chart_format              = p.get("chart_format", "html"),
         proximity_lookback_weeks  = p.get("proximity_lookback_weeks", 13),
         price_source              = p.get("price_source", "yfinance"),
+        generate_pdf_report       = p.get("generate_pdf_report", False),
+        generate_txt_report       = p.get("generate_txt_report", False),
+        txt_report_format         = p.get("txt_report_format", "txt"),
     )
 
     cfg.instruments = _read_instruments_csv(instruments_path)
@@ -256,8 +262,8 @@ def _validate(p: dict[str, Any]) -> None:
         ("output_mode",      ["terminal", "csv", "both"]),
         ("display_mode",     ["Full", "Compact"]),
         ("color_theme",      ["Dark", "Light"]),
-        ("chart_type",       ["COT_Report", "COT_Index", "COT_Proximity", "Figure_A", "Figure_B", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E", "All"]),
-        ("chart_format",     ["png", "html", "both"]),
+        ("chart_type",       ["COT_Report", "COT_Index", "COT_Proximity", "Figure_A", "Figure_B", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E", "Figure_F", "All"]),
+        ("chart_format",     ["png", "html", "svg", "both"]),
         ("trading_days_mode",["Weekdays", "24_7"]),
     ]
     for key, valid in checks:
@@ -266,6 +272,9 @@ def _validate(p: dict[str, Any]) -> None:
                 f"Invalid value for '{key}': {p.get(key)!r}. "
                 f"Valid options: {valid}"
             )
+
+    if p.get("txt_report_format", "txt") not in ("txt", "html", "both"):
+        raise ValueError("txt_report_format must be txt, html, or both")
 
     if p["heavy_sellers_level"] >= p["heavy_buyers_level"]:
         raise ValueError(

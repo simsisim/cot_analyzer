@@ -20,7 +20,13 @@ from cot_analyzer.utils.helpers import format_contracts, format_pct
 # SHARED HELPERS
 # ─────────────────────────────────────────────────────────────
 
-_console = Console()
+_console = Console(record=True)
+
+
+def set_console(c: Console) -> None:
+    """Replace the module-level console (called from main.py to share a single recording instance)."""
+    global _console
+    _console = c
 
 
 def _idx_color(value: float, heavy_buyers: int, heavy_sellers: int) -> str:

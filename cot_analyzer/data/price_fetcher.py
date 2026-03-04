@@ -16,9 +16,10 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _cache_path(cache_dir: Path, ticker: str) -> Path:
+def _cache_path(cache_dir: Path, ticker: str, interval: str = "1wk") -> Path:
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in ticker)
-    return cache_dir / f"price_{safe}.parquet"
+    suffix = "1d" if interval == "1d" else "1wk"
+    return cache_dir / f"price_{safe}_{suffix}.parquet"
 
 
 def fetch_price_data(
@@ -26,10 +27,12 @@ def fetch_price_data(
     years_history: int,
     cache_dir: Path,
     auto_refresh: bool = True,
+    interval: str = "1wk",
 ) -> pd.DataFrame:
     """
-    Return weekly OHLCV DataFrame for the given ticker.
+    Return OHLCV DataFrame for the given ticker.
 
+    interval : "1wk" (weekly, default) or "1d" (daily)
     Columns returned: date, open, high, low, close, volume
     Sorted ascending by date.
 
@@ -38,7 +41,7 @@ def fetch_price_data(
     if not ticker:
         return pd.DataFrame()
 
-    cache_file = _cache_path(cache_dir, ticker)
+    cache_file = _cache_path(cache_dir, ticker, interval)
 
     # Use cache if fresh enough
     if cache_file.exists() and not auto_refresh:
@@ -68,7 +71,7 @@ def fetch_price_data(
         raw = yf.download(
             ticker,
             period=period,
-            interval="1wk",
+            interval=interval,
             auto_adjust=True,
             progress=False,
         )
