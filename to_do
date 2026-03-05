@@ -160,4 +160,60 @@ Here is the full plan. No coding yet.
   ---
   Ready to code when you say go. Shall I start with Phase 1 (config) and work through in order, or would you
   like to adjust anything first?
+  
+  
+  
+  Design Document: Batch Processing System
+Objective
+Automate the execution of multiple COT analysis runs based on a configuration file (
+user_input/batching.csv
+), ensuring each run uses specific settings and saves results to a unique, non-overwriting folder.
+
+Proposed Architecture
+1. 
+main.py
+ CLI Overrides
+Enhance 
+main.py
+ to accept CLI arguments that override any settings in 
+user_config.csv
+ or 
+instruments.csv
+.
+
+--instrument [name]: Filter the processing list to only this instrument name. Force enabled=True for this name.
+--range [START:END]: Override the chart display range (clipped x-axis).
+--tag [string]: Set a custom research tag for folder naming.
+2. Output Folder Suffixing
+Update the configuration loader to automatically generate a unique output path for charts.
+
+Path Pattern: output/charts/res_[tag]_[range]/
+Example: output/charts/res_v1_20000101-20050101/
+This ensures that batch runs don't overwrite each other's image files.
+3. Batch Runner Tool: tools/run_batch.py
+A new script dedicated to orchestration.
+
+Input: Reads 
+user_input/batching.csv
+.
+Logic:
+Iterates through each investigation row.
+Performs string normalization (e.g., converting en-dashes – and hyphens - to a standard format) to reliably link 
+batching.csv
+ names to 
+instruments.csv
+ records.
+Spawns a subprocess for each run: python main.py --instrument "GC - Gold" --range "01-01-2001:31-12-2005" --tag "v1"
+Reporting: Logs the success/failure of each batch item.
+Normalization Strategy
+To handle names like GC – Gold (en-dash) vs GC - Gold (hyphen):
+
+Convert to lowercase.
+Replace all punctuation/dashes with a single space.
+Strip leading/trailing whitespace.
+Result for both: gc gold.
+Questions for Discussion
+Concurrency: Should runs be sequential or parallel? (Sequential is recommended for cleaner logs).
+Persistence: Should we generate a "Batch Summary" report at the end?
+Scope: Do you need batching for non-chart settings (e.g., changing the lookback period per batch item)?
 

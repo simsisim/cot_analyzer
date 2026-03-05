@@ -1,0 +1,87 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{fontspec}
+
+\definecolor{bullish}{RGB}{0,160,80}
+\definecolor{bearish}{RGB}{200,30,30}
+\definecolor{neutral}{RGB}{120,120,120}
+\definecolor{headerbg}{RGB}{30,30,50}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\title{
+  \textbf{COT Analyzer Report}\\[0.4em]
+  \large {{ report_type | latex_escape }} \textperiodcentered{} {{ analysis_method | latex_escape }}
+}
+\author{}
+\date{ {{- report_date -}} }
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\section*{Instruments Analyzed}
+\begin{itemize}
+{% for inst in instruments %}
+  \item {{ inst | latex_escape }}
+{% endfor %}
+\end{itemize}
+
+\newpage
+\tableofcontents
+\newpage
+
+{% for r in results %}
+\section{ {{- r.name | latex_escape -}} }
+
+\subsection*{Summary}
+\begin{tabular}{ll}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Market State      & {{ r.market_state | latex_escape }} \\
+WillCo \%         & {{ r.willco_pct }} \\
+Comm Index (primary) & {{ r.comm_index_primary }} \\
+Comm Index (secondary) & {{ r.comm_index_secondary }} \\
+Large Spec Index (primary) & {{ r.ls_index_primary }} \\
+Signal            & {{ r.signal | latex_escape }} \\
+Confluence        & {{ r.confluence | latex_escape }} \\
+Best Setup        & {{ r.best_setup | latex_escape }} \\
+\bottomrule
+\end{tabular}
+
+{% if r.historical %}
+\subsection*{Historical Ranks}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Period} & \textbf{Comm Rank} & \textbf{LS Rank} & \textbf{SS Rank} \\
+\midrule
+{% for period, vals in r.historical.items() %}
+{{ period }} & {{ vals.comm_pct }} & {{ vals.ls_pct }} & {{ vals.ss_pct }} \\
+{% endfor %}
+\bottomrule
+\end{tabular}
+{% endif %}
+
+{% if r.charts %}
+\subsection*{Charts}
+{% for chart_path in r.charts %}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{ {{- chart_path -}} }
+  \caption{ {{- r.name | latex_escape }} — {{ chart_path | basename | latex_escape -}} }
+\end{figure}
+{% endfor %}
+{% endif %}
+
+\newpage
+{% endfor %}
+
+\end{document}

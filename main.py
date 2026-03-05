@@ -76,11 +76,13 @@ def _process_instrument(
         cache_dir = project_root / "data" / "cache"
         try:
             raw_cache[report_type] = fetch_cot_data(
-                report_type   = report_type,
-                years_history = cfg.data_years_history,
-                cache_dir     = cache_dir,
-                cache_enabled = cfg.cache_enabled,
-                auto_refresh  = cfg.auto_refresh,
+                report_type           = report_type,
+                years_history         = cfg.data_years_history,
+                cache_dir             = cache_dir,
+                cache_enabled         = cfg.cache_enabled,
+                auto_refresh          = cfg.auto_refresh,
+                hist_data_before_2003 = cfg.hist_data_before_2003,
+                include_options       = cfg.include_options,
             )
         except Exception as exc:
             console.print(f"[red]ERROR fetching {report_type}: {exc}[/red]")
@@ -175,21 +177,23 @@ def _maybe_save_chart(result: dict, cfg: AppConfig) -> None:
         from cot_analyzer.display.charts import save_chart
         snap = result["snap"]
         paths = save_chart(
-            df              = result["df"],
-            snap            = snap,
-            instrument_name = result["name"],
-            output_folder   = cfg.output_folder,
-            primary_lb      = snap["primary_lookback"],
-            secondary_lb    = snap["secondary_lookback"],
-            heavy_buyers    = cfg.heavy_buyers_level,
-            heavy_sellers   = cfg.heavy_sellers_level,
-            chart_type      = cfg.chart_type,
-            chart_format    = cfg.chart_format,
-            analysis_method = cfg.analysis_method,
-            historical      = result.get("historical", {}),
-            proximity_lb    = cfg.proximity_lookback_weeks,
-            df_price        = result.get("df_price"),
-            df_price_daily  = result.get("df_price_daily"),
+            df                  = result["df"],
+            snap                = snap,
+            instrument_name     = result["name"],
+            output_folder       = cfg.output_folder,
+            primary_lb          = snap["primary_lookback"],
+            secondary_lb        = snap["secondary_lookback"],
+            heavy_buyers        = cfg.heavy_buyers_level,
+            heavy_sellers       = cfg.heavy_sellers_level,
+            chart_type          = cfg.chart_type,
+            chart_format        = cfg.chart_format,
+            analysis_method     = cfg.analysis_method,
+            historical          = result.get("historical", {}),
+            proximity_lb        = cfg.proximity_lookback_weeks,
+            df_price            = result.get("df_price"),
+            df_price_daily      = result.get("df_price_daily"),
+            chart_display_range = cfg.chart_display_range,
+            chart_display_ticks = cfg.chart_display_ticks,
         )
         for p in paths:
             console.print(f"[dim]Chart saved → {p}[/dim]")
@@ -232,6 +236,19 @@ def main() -> int:
         "--verbose", "-v", action="store_true",
         help="Enable debug logging",
     )
+    # Overrides for batch processing
+    parser.add_argument(
+        "--instrument", type=str,
+        help="Specific instrument name to process (overrides enabled=True in CSV)",
+    )
+    parser.add_argument(
+        "--range", type=str,
+        help="Chart x-axis range override: DD-MM-YYYY:DD-MM-YYYY",
+    )
+    parser.add_argument(
+        "--tag", type=str,
+        help="Custom folder suffix tag for this run",
+    )
     args = parser.parse_args()
 
     _configure_logging(args.verbose)
@@ -239,7 +256,12 @@ def main() -> int:
 
     # ── Load config ──────────────────────────────────────────
     try:
-        cfg = load_config(project_root)
+        cfg = load_config(
+            project_root             = project_root,
+            instrument_name_override = args.instrument,
+            range_override           = args.range,
+            tag_override             = args.tag,
+        )
     except (FileNotFoundError, ValueError) as exc:
         console.print(f"[red bold]Config error:[/red bold] {exc}")
         return 1

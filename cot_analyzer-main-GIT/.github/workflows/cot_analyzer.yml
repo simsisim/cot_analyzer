@@ -1,0 +1,91 @@
+name: COT Analyzer
+
+# ── Triggers ──────────────────────────────────────────────────
+# Schedule: every Friday at 9:30pm UTC
+#   CFTC publishes COT reports every Friday at 3:30pm ET
+#   EST (winter, UTC-5) → 3:30pm ET = 8:30pm UTC
+#   EDT (summer, UTC-4) → 3:30pm ET = 7:30pm UTC
+#   9:30pm UTC is safely after both, regardless of DST
+on:
+  workflow_dispatch:        # manual trigger from GitHub UI
+  schedule:
+    - cron: '30 21 * * 5'  # every Friday 21:30 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python ───────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 3. Pip cache ────────────────────────────────────────
+      #    Keyed on requirements.txt hash → refreshes only when deps change
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── 4. System libs for kaleido (PNG chart export) ───────
+      #    kaleido bundles Chromium but needs these shared libs on
+      #    a bare Ubuntu runner to render PNG/SVG charts
+      - name: Install kaleido system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
+            libxdamage1 libxfixes3 libxrandr2 libgbm1
+
+      # ── 5. Compute week key ─────────────────────────────────
+      #    Used to namespace the CFTC cache and artifact names
+      - name: Set week identifier
+        id: date
+        run: |
+          echo "year=$(date +%Y)" >> $GITHUB_OUTPUT
+          echo "week=$(date +%V)"  >> $GITHUB_OUTPUT
+
+      # ── 6. CFTC parquet cache ────────────────────────────────
+      #    22 MB of yearly parquet files; only the current year
+      #    file changes on each CFTC publish.
+      #    Primary key  : cot-data-YYYY-WW  → miss once per week, hit on re-runs
+      #    Restore key  : cot-data-          → fall back to previous week's cache
+      - name: Cache CFTC parquet data
+        uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: cot-data-${{ steps.date.outputs.year }}-${{ steps.date.outputs.week }}
+          restore-keys: |
+            cot-data-
+
+      # ── 7. Run ──────────────────────────────────────────────
+      - name: Run COT Analyzer
+        run: PYTHONPATH=. python main.py
+
+      # ── 8. Upload output as artifact ────────────────────────
+      #    Contains: output/charts/*.png  output/summary.csv  output/cot_report.*
+      #    Artifact name includes year + ISO week for easy identification
+      #    if: always() → artifacts are saved even when the run step fails
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cot-output-${{ steps.date.outputs.year }}-w${{ steps.date.outputs.week }}
+          path: output/
+          retention-days: 90

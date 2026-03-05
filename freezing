@@ -1,0 +1,320 @@
+Claude Code occasionally freezes or becomes unresponsive during intensive operations. This guide covers the most common causes of freezing, immediate recovery methods, and preventive measures to keep your sessions running smoothly.
+
+Common Causes of Freezing
+Understanding why Claude Code freezes helps you prevent issues before they occur.
+
+Large File Processing
+Claude Code loads file contents into memory for analysis. Files larger than 1MB can cause significant slowdowns or freezes, especially when:
+
+Reading binary files mistakenly included in searches
+Processing minified JavaScript bundles
+Analyzing large data files (SQL dumps, CSVs, logs)
+Opening generated code or vendor directories
+Memory Constraints
+Your system's available RAM directly impacts Claude Code performance:
+
+Minimum: 4GB RAM (basic usage)
+Recommended: 8GB+ RAM (large projects)
+Heavy workloads: 16GB+ RAM (monorepos, parallel sessions)
+When memory runs low, the operating system may throttle processes, causing apparent freezes.
+
+Network Connectivity Issues
+Claude Code requires a stable internet connection to communicate with Anthropic's API. Network problems manifest as:
+
+Long pauses between responses
+Operations that never complete
+Timeout errors after extended waits
+Extended Session Accumulation
+Long coding sessions accumulate context, consuming both memory and processing time:
+
+Each file read adds to the context window
+Conversation history grows with every exchange
+Tool outputs (test results, build logs) consume tokens rapidly
+Sessions lasting several hours without compaction are prone to sluggish behavior.
+
+Diagnostic Steps
+Before attempting fixes, diagnose the root cause.
+
+Check System Resources
+macOS:
+
+# Check memory pressure
+vm_stat | head -5
+
+# Monitor Claude process
+top -pid $(pgrep -f claude) -l 1
+Copy
+Linux:
+
+# Check available memory
+free -h
+
+# Monitor Claude process
+htop -p $(pgrep -f claude)
+Copy
+Windows (PowerShell):
+
+# Check memory usage
+Get-Process claude* | Select-Object Name, WorkingSet64, CPU
+Copy
+Identify Problematic Files
+If freezing occurs during file operations, check what Claude was accessing:
+
+# Recent large files in your project
+find . -type f -size +1M -mtime -1 2>/dev/null | head -20
+Copy
+Check Context Usage
+If Claude responds but slowly, check context consumption:
+
+/context
+Copy
+Context usage above 80% often correlates with degraded performance.
+
+Immediate Recovery Methods
+When Claude Code becomes unresponsive, use these recovery techniques in order.
+
+Method 1: Interrupt the Operation
+Press the keyboard interrupt:
+
+macOS/Linux: Ctrl+C
+Windows: Ctrl+C
+This attempts to gracefully stop the current operation. Wait 5-10 seconds for Claude to respond.
+
+Method 2: Force Quit from Another Terminal
+If Ctrl+C does not work, open a new terminal window.
+
+macOS/Linux:
+
+# Find and kill Claude processes
+pkill -f claude
+
+# Or more forcefully
+pkill -9 -f claude
+Copy
+Windows (PowerShell):
+
+# Find Claude processes
+Get-Process | Where-Object {$_.ProcessName -like "*claude*"}
+
+# Kill the process
+Stop-Process -Name "claude" -Force
+Copy
+Windows (Task Manager):
+
+Press Ctrl+Shift+Esc to open Task Manager
+Find processes containing "claude"
+Select and click "End Task"
+Method 3: Restart Your Terminal
+If killing the process does not help:
+
+Close your terminal application completely
+Wait 10 seconds
+Open a fresh terminal
+Navigate to your project directory
+Run claude to start a new session
+Recovering Your Work
+Your conversation history persists across restarts. After recovering:
+
+/resume
+Copy
+This continues your previous conversation. If the same operation caused the freeze, consider breaking it into smaller tasks.
+
+Preventive Measures
+Configure File Exclusions
+Create permission rules to prevent Claude from reading problematic files.
+
+User-level settings (~/.claude/settings.json):
+
+{
+  "permissions": {
+    "deny": [
+      "Read(**/*.log)",
+      "Read(**/*.sql)",
+      "Read(**/*.dump)",
+      "Read(**/node_modules/**)",
+      "Read(**/dist/**)",
+      "Read(**/build/**)",
+      "Read(**/*.min.js)",
+      "Read(**/*.bundle.js)",
+      "Read(**/vendor/**)"
+    ]
+  }
+}
+Copy
+For .gitignore-style exclusions, use the claudeignore npm package which provides a .claudeignore file in your project root.
+
+Use the /compact Command Regularly
+Compact your conversation before context fills up:
+
+/compact
+Copy
+Recommended compaction schedule:
+
+Context Usage	Action
+50-70%	Plan to compact soon
+70-85%	Compact immediately
+85%+	Emergency compact
+Provide instructions to preserve important context:
+
+/compact keep file paths, decisions, and current task progress
+Copy
+Break Large Operations into Chunks
+Instead of asking Claude to process everything at once:
+
+Avoid:
+
+Analyze all 500 test files and suggest improvements
+Copy
+Better:
+
+Analyze the test files in /tests/unit/auth - suggest improvements for these 15 files
+Copy
+Monitor Long Sessions
+For sessions lasting more than an hour:
+
+Check context usage with /context
+Review memory usage in system monitor
+Compact if approaching 70% context
+Consider starting fresh for unrelated tasks
+Platform-Specific Troubleshooting
+macOS
+Common issues:
+
+Sleep mode interruption: macOS may suspend background processes. Keep your Mac awake during long operations.
+Terminal app limitations: Switch to iTerm2 or Warp for better process handling.
+Diagnostic commands:
+
+# Check if Claude is running
+pgrep -fl claude
+
+# View Claude logs
+tail -f ~/.claude/logs/claude.log
+
+# Check for zombie processes
+ps aux | grep -E 'Z.*claude'
+Copy
+Windows (Native)
+Common issues:
+
+Antivirus interference: Windows Defender may scan Claude's operations. Add Claude to exclusions.
+PowerShell execution policy: Ensure scripts can run with Set-ExecutionPolicy RemoteSigned.
+Diagnostic commands:
+
+# Check Claude processes
+Get-Process | Where-Object {$_.ProcessName -match "claude"}
+
+# View recent errors
+Get-EventLog -LogName Application -EntryType Error -Newest 10
+Copy
+Windows (WSL)
+Common issues:
+
+Memory limits: WSL has default memory limits. Edit .wslconfig to increase allocation.
+File system boundary: Operations crossing from WSL to Windows file systems are slower.
+Increase WSL memory (%USERPROFILE%\.wslconfig):
+
+[wsl2]
+memory=8GB
+processors=4
+Copy
+Restart WSL after changes:
+
+wsl --shutdown
+Copy
+Linux
+Common issues:
+
+Swap space: Insufficient swap causes freezing under memory pressure.
+File descriptor limits: Large projects may hit limits.
+Check and increase limits:
+
+# Check current limits
+ulimit -n
+
+# Increase for session
+ulimit -n 65535
+
+# Check swap
+swapon --show
+Copy
+Memory Optimization Tips
+Reduce Active Context
+Close files you are no longer working with by moving to different tasks
+Use specific file references instead of broad searches
+Delegate verbose operations (test runs, builds) to subagents
+Optimize Your Environment
+Close unnecessary applications during intensive Claude sessions
+Use an SSD for your project directory (faster file access)
+Ensure adequate system RAM (8GB minimum for large projects)
+Use Lighter Models for Routine Tasks
+Switch to faster models for simple operations:
+
+/model
+Copy
+Use Claude Sonnet or Haiku for:
+
+Quick syntax checks
+Simple file operations
+Routine code generation
+Reserve Opus for complex reasoning tasks.
+
+When to Report Issues
+Some freezing issues indicate bugs that should be reported.
+
+Gather Diagnostic Information
+Before reporting, collect:
+
+# Version information
+claude --version
+
+# System information
+claude doctor
+
+# Recent logs
+cat ~/.claude/logs/claude.log | tail -100
+Copy
+Report to GitHub
+File issues at the Claude Code GitHub repository with:
+
+Claude Code version
+Operating system and version
+Steps to reproduce the freeze
+Relevant log excerpts
+Context size when the freeze occurred
+Log File Locations
+macOS/Linux: ~/.claude/logs/
+Windows: %USERPROFILE%\.claude\logs\
+Include the most recent log entries in your report, but redact any sensitive information (file paths, code snippets).
+
+Free Download
+Claude Code Starter Kit
+Drop-in CLAUDE.md templates for Next.js, Python, Go, Rust, and monorepos. Plus MCP server configs and a troubleshooting guide.
+
+Claude Code Starter Kit — CLAUDE.md templates + MCP configs + troubleshooting
+
+Your name
+Work email
+Get Free Download
+No spam. Unsubscribe anytime.
+
+Summary
+When Claude Code freezes:
+
+Immediate: Try Ctrl+C, then pkill -f claude or Task Manager
+Recovery: Use /resume to continue your previous session
+Prevention: Configure exclusions, compact regularly, chunk large operations
+Investigation: Check system resources, context usage, and logs
+Most freezing issues stem from memory pressure or large context accumulation. Regular compaction and proper file exclusions prevent the majority of problems.
+
+Having persistent issues? Inventive HQ provides consulting on AI-assisted development tools and workflows. Contact us for help optimizing your Claude Code setup.
+
+
+❯ I am experince a strange situation: while running and working at this project I have experince freezing of my system.    
+  NOthing respoded and needed to force the shut down on my computer. '/home/imagda/_invest2024/python/cot_analyzer/to_do'   
+  -was my plan; the freezing occurs at during the implementation phase. Some fixes: [Pasted text #1 +23                     
+  lines]'/home/imagda/_invest2024/python/cot_analyzer/freezing' . My idea is that in this part of the project we are        
+  working with large files: maybe when you trying to parse the file, json etc cause the cpu to get crazy. I must say: in    
+  my case freezing is 100%: i cannot interact with my computer, the mouse terminals etc are not reposding ... How can we    
+  make a plan to diagnose the problem 
+
+

@@ -1,0 +1,163 @@
+
+
+I have to create plots of the COT index data for GOLD from 2000-2004. THere is a problem: the solution you have implemented only works with data download from 2003-present. On the site of https://www.cftc.gov/MarketReports/CommitmentsofTraders/HistoricalCompressed/index.htm there is the posibility to download manually (maybe also via python) the data starting from 1986.
+
+Introduce in user_config: hist_data_before_2003: True or False, allow us to download this data if required, by the user  and if required by setting a data_years_history  value that extent more than 2003, which is I belive the oldest year available with current method.
+
+Once we have data downloaded, put them all together?
+
+Perform calculation on them.
+
+Observation: I need in Group 9: 9_output: chart_display_range: DD-MM-YYYY:DD-MM-YYYY --> How much of the process data to display on charts? i.e, chart_display_range: 20-01-1999:21-01-2002 - only display this period on the charts, not the whole calculated time range.
+
+What do you think? Do you think of other improvements?
+
+
+Here is the full plan. No coding yet.                                                                        
+                                                                                                               
+  ---                                                                                                          
+  Implementation Plan
+                                                                                                               
+  Overview of Changes
+
+  ┌───────────────────────────────────┬─────────────────────────────────────────────────────────────────┐
+  │               File                │                             Change                              │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ user_input/user_config.csv        │ +2 params: hist_data_before_2003 (G1), chart_display_range (G9) │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ cot_analyzer/data/hist_fetcher.py │ New — direct CFTC zip download for pre-2003 years               │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ cot_analyzer/data/fetcher.py      │ Route pre-2003 years to hist_fetcher; add new param             │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ cot_analyzer/config/loader.py     │ Add 2 new AppConfig fields + parse/validate them                │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ cot_analyzer/display/charts.py    │ Apply chart_display_range as x-axis filter                      │
+  ├───────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ main.py                           │ Thread the two new config values through the pipeline           │
+  └───────────────────────────────────┴─────────────────────────────────────────────────────────────────┘
+
+  ---
+  Phase 1 — user_config.csv additions
+
+  Group 1 (after auto_refresh):
+  1_data,hist_data_before_2003,False,False,bool,True | False,
+    Enable downloading pre-2003 COT data directly from CFTC (1986–2002),
+    Triggered automatically when data_years_history implies start year < 2003.
+    Pre-2003 files lack concentration ratio columns (Top-4/Top-8 will be NaN).
+
+  Group 9 (after chart_format or near end):
+  9_output,chart_display_range,,  ,string,,
+    Restrict chart x-axis to a date window: DD-MM-YYYY:DD-MM-YYYY. Empty = full range.,
+    Example: 01-01-1999:31-12-2004. Calculations still use ALL loaded data; only display is clipped.
+
+  ---
+  Phase 2 — New cot_analyzer/data/hist_fetcher.py
+
+  Responsibilities:
+  - Build the download URL: https://www.cftc.gov/files/dea/history/deacot{YEAR}.zip (futures-only) or
+  deahistfo{YEAR}.zip (futures+options)
+  - Download the zip into memory (requests or urllib)
+  - Open zip, find the .txt file inside, read as CSV with pd.read_csv
+  - Column normalization: the pre-2003 CFTC Legacy format uses identical column names to modern Legacy files —
+  the difference is that concentration columns (Conc. Gross LE 4 TDR Long, etc.) were only added in 2004. So
+  pre-2003 files simply lack those columns; we fill them with NaN after reading
+  - Save parquet to {cache_dir}/{report_type}_{year}_hist.parquet
+
+  Key facts about the CFTC text format:
+  - All years (1986–present) use comma-delimited .txt inside the zip
+  - Column names are identical across years for the core positional data
+  - Concentration columns (Conc. Gross LE 4 TDR Long/Short, Conc. Net LE 4 TDR Long/Short, Conc. Gross LE 8 TDR
+   Long/Short, Conc. Net LE 8 TDR Long/Short) are absent pre-2004 → fill NaN
+  - The cot-reports library's output is effectively a parsed version of these same files, so column names
+  should match after the library's internal renaming
+
+  ---
+  Phase 3 — Modify fetcher.py
+
+  In fetch_cot_data():
+  - Add hist_data_before_2003: bool = False parameter
+  - Change the year-loop logic:
+  for year in years:
+      if year < 2003 and hist_data_before_2003:
+          use hist_fetcher.fetch_pre2003_year(...)
+      else:
+          use existing cot-reports path
+  - Cache naming for pre-2003: append _hist suffix to parquet filename to distinguish from future cot-reports
+  downloads
+  - After concat, the pd.concat(ignore_index=True) call already handles column union → missing concentration
+  columns in old rows become NaN naturally
+
+  ---
+  Phase 4 — loader.py changes
+
+  AppConfig dataclass: add:
+  hist_data_before_2003: bool = False
+  chart_display_range: tuple | None = None   # (datetime, datetime) or None
+
+  Parsing chart_display_range in load_config():
+  - If the raw string is empty → None
+  - Else split on :, parse each part with datetime.strptime(part, "%d-%m-%Y")
+  - Validate: start < end; raise ValueError with helpful message if malformed
+
+  Auto-trigger logic: add a warning (not an error) if data_years_history would require pre-2003 data but
+  hist_data_before_2003 = False:
+  "Warning: data_years_history={N} requests data back to {year} but hist_data_before_2003=False.
+   Pre-2003 data will be skipped. Set hist_data_before_2003=True to include it."
+
+  ---
+  Phase 5 — charts.py changes
+
+  In the save_chart() function (and all sub-chart functions it calls):
+  - Accept chart_display_range: tuple | None = None
+  - After building the figure but before saving, if chart_display_range is not None:
+  start, end = chart_display_range
+  fig.update_xaxes(range=[start, end])
+  - This is purely cosmetic (Plotly x-axis range), the full DataFrame is still used for index calculation
+  - Apply to all subplots (all rows) so the date axes stay synchronized
+
+  ---
+  Phase 6 — main.py changes
+
+  - Pass cfg.hist_data_before_2003 into fetch_cot_data() call
+  - Pass cfg.chart_display_range into save_chart() call (via _maybe_save_chart)
+
+  ---
+  Suggested Additional Improvements (my thoughts)
+
+  These are things you haven't asked for but are natural companions to this work:
+
+  1. Progress indicator during bulk historical download: When downloading 17 years (1986–2002) for the first
+  time, add a Rich progress bar or at minimum print "Downloading {year} …" so the user isn't staring at a
+  frozen terminal.
+  2. calc_range / display_range separation at the DataFrame level: chart_display_range clips the chart axes but
+   today the tables (display_instrument) always show the latest snapshot. When you're in a historical study
+  mode (e.g., studying 2000–2004), you'd probably want the snapshot date to be chart_display_range.end, not
+  "today". This would require a snapshot_date parameter passed through the pipeline. Worth discussing
+  separately.
+  3. Pre-2003 column-gap warning in terminal output: When an instrument has NaN concentration rows (pre-2004),
+  the OI concentration section should say "Data not available (pre-2004)" instead of showing dashes or errors.
+  4. Automatic hist_data_before_2003 activation: Instead of a separate flag, we could infer it from
+  data_years_history alone (if current_year - data_years_history < 2003 → auto-activate). But having an
+  explicit flag is safer and more predictable, so the current plan is fine.
+  5. chart_display_range also in non-chart output: The text tables currently show a single snapshot (latest
+  date). With historical range charts, users might want a "as of date" table too — i.e., show signal status at
+  the end of the display range. Out of scope for now but a natural follow-on.
+
+  ---
+  Risk Areas
+
+  - Column name drift across decades: The CFTC Legacy format is very stable, but years before ~1995 may have
+  subtle differences. Should add a try/except around column mapping with a fallback that logs the available
+  columns.
+  - cot-reports library year minimum: The library may silently fail or return an empty DataFrame for very old
+  years (1986–1990) depending on the library version. The hist_fetcher direct download path bypasses this
+  entirely.
+  - Encoding: CFTC .txt files use ASCII/latin-1; pd.read_csv(..., encoding='latin-1') is safest.
+  - chart_display_range vs. lookback: If the display range is shorter than the lookback window, the index
+  calculations are still correct (they use full data), but users may be confused seeing an index chart that
+  starts before their lookback window starts. A log note about this would help.
+
+  ---
+  Ready to code when you say go. Shall I start with Phase 1 (config) and work through in order, or would you
+  like to adjust anything first?
+

@@ -58,6 +58,8 @@ def fetch_cot_data(
     cache_dir: Path,
     cache_enabled: bool,
     auto_refresh: bool,
+    hist_data_before_2003: bool = False,
+    include_options: bool = False,
 ) -> pd.DataFrame:
     """
     Return a combined DataFrame covering the requested years.
@@ -65,16 +67,19 @@ def fetch_cot_data(
     Strategy
     --------
     For each required year:
-      1. If cache file exists and is not stale → load from disk.
-      2. Else download from CFTC and save to cache.
+      - year >= 2003  → cot-reports library (existing path)
+      - year <  2003  → direct CFTC zip download via hist_fetcher
+                        (only when hist_data_before_2003=True)
 
     Parameters
     ----------
-    report_type   : 'Legacy' | 'Disaggregated' | 'Financial'
-    years_history : number of past years to load (e.g. 5)
-    cache_dir     : path to the local parquet cache directory
-    cache_enabled : if False, always download fresh (no caching)
-    auto_refresh  : if True, re-fetch current year when stale
+    report_type           : 'Legacy' | 'Disaggregated' | 'Financial'
+    years_history         : number of past years to load (e.g. 5)
+    cache_dir             : path to the local parquet cache directory
+    cache_enabled         : if False, always download fresh (no caching)
+    auto_refresh          : if True, re-fetch current year when stale
+    hist_data_before_2003 : if True, include pre-2003 data from CFTC archive
+    include_options       : passed to hist_fetcher for pre-2003 file selection
     """
     cot_type = COT_REPORT_TYPE_MAP.get(report_type)
     if not cot_type:
@@ -86,9 +91,39 @@ def fetch_cot_data(
     current_year = datetime.now(tz=timezone.utc).year
     years = list(range(current_year - years_history + 1, current_year + 1))
 
+    # Warn if user wants pre-2003 data but the flag is off
+    pre2003_years = [y for y in years if y < 2003]
+    if pre2003_years and not hist_data_before_2003:
+        logger.warning(
+            "data_years_history=%d requests data back to %d but "
+            "hist_data_before_2003=False. Pre-2003 data will be skipped. "
+            "Set hist_data_before_2003=True to include it.",
+            years_history, pre2003_years[0],
+        )
+
     frames: list[pd.DataFrame] = []
 
     for year in years:
+        # ── Pre-2003 path ────────────────────────────────────────────
+        if year < 2003:
+            if not hist_data_before_2003:
+                continue
+            try:
+                from cot_analyzer.data.hist_fetcher import fetch_pre2003_year
+                print(f"  Downloading pre-2003 COT data for {year} …")
+                df = fetch_pre2003_year(
+                    year            = year,
+                    include_options = include_options,
+                    cache_dir       = cache_dir,
+                    cache_enabled   = cache_enabled,
+                    cot_type        = cot_type,
+                )
+                frames.append(df)
+            except Exception as exc:
+                logger.warning("Pre-2003 fetch failed for %d: %s — skipping.", year, exc)
+            continue
+
+        # ── 2003+ path (cot-reports library) ────────────────────────
         cache_file = _cache_path(cache_dir, cot_type, year)
         is_current_year = year == current_year
 

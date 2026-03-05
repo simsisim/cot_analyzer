@@ -12,7 +12,7 @@ False,CL - Crude Oil,67651,Energy,,,CL=F,Crude Oil WTI Futures (NYMEX),High open
 False,NG - Natural Gas,23651,Energy,,,NG=F,Natural Gas Futures (NYMEX),Seasonal patterns are especially important for Natural Gas.
 #--- EQUITY INDICES ---,,,,,,,,
 False,NQ - Nasdaq-100,209742,Index,,,NQ=F,E-mini Nasdaq-100 Futures (CME),For indices use Financial report type for better breakdown (Dealers vs Leveraged Funds). Override via report_type_override.
-True,ES - S&P 500,13874A,Index,,,ES=F,E-mini S&P 500 Futures (CME),
+False,ES - S&P 500,13874A,Index,,,ES=F,E-mini S&P 500 Futures (CME),
 False,YM - Dow Jones,124606,Index,,,YM=F,E-mini Dow Jones Futures (CME),
 False,RTY - Russell 2000,239742,Index,,,RTY=F,E-mini Russell 2000 Futures (CME),
 #--- BONDS ---,,,,,,,,

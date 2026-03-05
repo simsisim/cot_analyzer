@@ -143,7 +143,11 @@ def _apply_layout(fig, title: str, snap: dict, y_label: str,
         ),
         margin=dict(l=55, r=10, t=60, b=40),
     )
-    fig.update_xaxes(gridcolor="rgba(255,255,255,0.05)", showgrid=True, row=1, col=1)
+    fig.update_xaxes(
+        gridcolor="rgba(255,255,255,0.05)",
+        showgrid=True,
+        row=1, col=1
+    )
     fig.update_yaxes(
         title_text=y_label,
         gridcolor="rgba(255,255,255,0.05)",
@@ -172,7 +176,7 @@ def _build_cot_report(df, snap, name, go, make_subplots,
         specs=[[{"secondary_y": True}, {"type": "table"}]],
         horizontal_spacing=0.02,
     )
-    dates = df["date"]
+    dates = df["date"].dt.strftime("%Y-%m-%d")
 
     for col, label, color in (
         ("comm_net", "Commercial Net", _C_COMM),
@@ -226,7 +230,7 @@ def _build_cot_index(df, snap, name, go, make_subplots,
         specs=[[{"secondary_y": False}, {"type": "table"}]],
         horizontal_spacing=0.02,
     )
-    dates = df["date"]
+    dates = df["date"].dt.strftime("%Y-%m-%d")
 
     if is_both:
         # ── Solid = LW_Index, dashed = Percentile ─────────────
@@ -329,7 +333,7 @@ def _build_cot_proximity(df, snap, name, go, make_subplots,
         specs=[[{"secondary_y": False}, {"type": "table"}]],
         horizontal_spacing=0.02,
     )
-    dates = df["date"]
+    dates = df["date"].dt.strftime("%Y-%m-%d")
 
     has_data = any(c in df.columns for c in ("prox_comm", "prox_lrg", "prox_sml"))
 
@@ -424,7 +428,7 @@ def _build_figure_a(df, snap, name, df_price, go, make_subplots,
         ],
     )
 
-    # Convert all dates to ISO strings for reliable Plotly date rendering
+    # Use string dates for stable Plotly alignment on shared axes
     cot_dates = df["date"].dt.strftime("%Y-%m-%d")
 
     # ── Panel 1: Candlestick ──────────────────────────────────
@@ -578,11 +582,12 @@ def _build_figure_a(df, snap, name, df_price, go, make_subplots,
     )
 
     # Disable candlestick rangeslider (bleeds into next panel with shared_xaxes)
-    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    # Disable candlestick rangeslider
+    fig.update_xaxes(type="date", rangeslider_visible=False, row=1, col=1)
     # Hide tick labels on all panels except the bottom one
     for r in (1, 2, 3, 4):
-        fig.update_xaxes(showticklabels=False, row=r, col=1)
-    fig.update_xaxes(showticklabels=True, row=5, col=1)
+        fig.update_xaxes(type="date", showticklabels=False, row=r, col=1)
+    fig.update_xaxes(type="date", showticklabels=True, row=5, col=1)
 
     # Y-axis labels
     gc = "rgba(255,255,255,0.05)"
@@ -766,10 +771,10 @@ def _build_figure_b(df, snap, name, df_price, go, make_subplots, group: str = "c
         bargap=0.1,
     )
 
-    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_xaxes(type="date", rangeslider_visible=False, row=1, col=1)
     for r in range(1, 2 + n_idx):   # hide all but last panel
-        fig.update_xaxes(showticklabels=False, row=r, col=1)
-    fig.update_xaxes(showticklabels=True, row=2 + n_idx, col=1)
+        fig.update_xaxes(type="date", showticklabels=False, row=r, col=1)
+    fig.update_xaxes(type="date", showticklabels=True, row=2 + n_idx, col=1)
 
     gc = "rgba(255,255,255,0.05)"
     fig.update_yaxes(title_text="Price",      row=1, col=1, gridcolor=gc)
@@ -1030,10 +1035,10 @@ def _build_figure_c(df, snap, name, df_price, go, make_subplots):
         margin=dict(l=60, r=100, t=70, b=65),
     )
 
-    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_xaxes(type="date", rangeslider_visible=False, row=1, col=1)
     for r in (1, 2, 3, 4):
-        fig.update_xaxes(showticklabels=False, row=r, col=1)
-    fig.update_xaxes(showticklabels=True, row=5, col=1)
+        fig.update_xaxes(type="date", showticklabels=False, row=r, col=1)
+    fig.update_xaxes(type="date", showticklabels=True, row=5, col=1)
 
     gc = "rgba(255,255,255,0.05)"
     fig.update_yaxes(title_text="Price",         row=1, col=1, gridcolor=gc)
@@ -1248,10 +1253,10 @@ def _build_figure_d(df, snap, name, df_price, go, make_subplots):
         margin=dict(l=60, r=100, t=70, b=70),
     )
 
-    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_xaxes(type="date", rangeslider_visible=False, row=1, col=1)
     for r in (1, 2):
-        fig.update_xaxes(showticklabels=False, row=r, col=1)
-    fig.update_xaxes(showticklabels=True, row=3, col=1)
+        fig.update_xaxes(type="date", showticklabels=False, row=r, col=1)
+    fig.update_xaxes(type="date", showticklabels=True, row=3, col=1)
 
     gc = "rgba(255,255,255,0.05)"
     fig.update_yaxes(title_text="Price",     row=1, col=1, gridcolor=gc)
@@ -1475,7 +1480,7 @@ def _build_figure_e(df, snap, name, df_price, go, make_subplots):
         margin=dict(l=60, r=40, t=70, b=55),
     )
 
-    fig.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    fig.update_xaxes(type="date", rangeslider_visible=False, row=1, col=1)
     fig.update_yaxes(title_text="Price", row=1, col=1,
                      gridcolor="rgba(255,255,255,0.05)")
 
@@ -1579,8 +1584,9 @@ def _build_figure_f(df, snap, name, df_price_daily, go, make_subplots):
             s_pro  = pg["s_pro"]
             s_amat = pg["s_amat"]
 
-            # Background shading: shape per bar segment
-            for i in range(1, len(pg)):
+            # Background shading: group contiguous segments
+            i = 1
+            while i < len(pg):
                 p = s_pro.iloc[i]
                 a = s_amat.iloc[i]
                 if p > a and p > 0:
@@ -1588,9 +1594,25 @@ def _build_figure_f(df, snap, name, df_price_daily, go, make_subplots):
                 elif p < a and p < 0:
                     bg_color = "rgba(239,83,80,0.15)"    # red tint
                 else:
+                    i += 1
                     continue
+                
+                start_idx = i - 1
+                while i < len(pg):
+                    p_next = s_pro.iloc[i]
+                    a_next = s_amat.iloc[i]
+                    if p_next > a_next and p_next > 0:
+                        current_c = "rgba(38,166,154,0.15)"
+                    elif p_next < a_next and p_next < 0:
+                        current_c = "rgba(239,83,80,0.15)"
+                    else:
+                        break
+                    if current_c != bg_color:
+                        break
+                    i += 1
+                
                 fig.add_vrect(
-                    x0=dates.iloc[i - 1], x1=dates.iloc[i],
+                    x0=dates.iloc[start_idx], x1=dates.iloc[i-1],
                     fillcolor=bg_color, opacity=1.0,
                     layer="below", line_width=0,
                     row=row, col=1,
@@ -1644,7 +1666,7 @@ def _build_figure_f(df, snap, name, df_price_daily, go, make_subplots):
         margin=dict(l=60, r=80, t=70, b=55),
     )
 
-    fig.update_xaxes(rangeslider_visible=False)
+    fig.update_xaxes(type="date", rangeslider_visible=False)
     fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)")
     fig.update_yaxes(title_text="Price",     row=1, col=1)
     fig.update_yaxes(title_text="ProGo(14)", row=2, col=1)
@@ -1681,6 +1703,8 @@ def save_chart(
     proximity_lb: int = 13,
     df_price: pd.DataFrame | None = None,
     df_price_daily: pd.DataFrame | None = None,
+    chart_display_range: tuple | None = None,
+    chart_display_ticks: str = "auto",
 ) -> list[Path]:
     """
     Generate and save chart(s) for one instrument.
@@ -1703,6 +1727,15 @@ def save_chart(
     charts_dir.mkdir(parents=True, exist_ok=True)
     historical = historical or {}
     saved: list[Path] = []
+
+    # Apply chart_display_range pre-filtering
+    if chart_display_range is not None:
+        start, end = chart_display_range
+        df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
+        if df_price is not None and not df_price.empty:
+            df_price = df_price[(df_price["date"] >= start) & (df_price["date"] <= end)].copy()
+        if df_price_daily is not None and not df_price_daily.empty:
+            df_price_daily = df_price_daily[(df_price_daily["date"] >= start) & (df_price_daily["date"] <= end)].copy()
 
     modes = (
         ["COT_Report", "COT_Index", "COT_Proximity", "Figure_A", "Figure_B_Groups", "Figure_C", "Figure_D", "Figure_E", "Figure_F"]
@@ -1764,6 +1797,8 @@ def save_chart(
                 fig_g = _build_figure_b(
                     df, snap, instrument_name, df_price, go, make_subplots, group=grp,
                 )
+                # fig_g.update_xaxes(range=list(chart_display_range))
+                # _apply_x_ticks(fig_g, df, chart_display_range, chart_display_ticks)
                 slug_g = f"figure_b_{grp}"
                 if chart_format in ("html", "both"):
                     out_path = charts_dir / f"{safe}_{slug_g}.html"
@@ -1794,6 +1829,13 @@ def save_chart(
             fig = _build_figure_b(
                 df, snap, instrument_name, df_price, go, make_subplots,
             )
+
+        # No longer clipping in Plotly — data is filtered upfront
+        # if chart_display_range is not None:
+        #     start, end = chart_display_range
+        #     fig.update_xaxes(type="date", range=[start, end])
+            
+        # _apply_x_ticks(fig, df, chart_display_range, chart_display_ticks)
 
         # Export according to chart_format
         if chart_format in ("html", "both"):
@@ -1852,3 +1894,34 @@ def save_chart(
             saved.append(out_path)
 
     return saved
+
+
+def _apply_x_ticks(fig, df, chart_display_range: tuple | None, chart_display_ticks: str) -> None:
+    """Helper to apply the tick frequency to the x-axes."""
+    if chart_display_range is not None:
+        start, end = chart_display_range
+        delta = end - start
+    else:
+        # Default to the data range if no display range is specified
+        delta = df["date"].iloc[-1] - df["date"].iloc[0]
+
+    selected_dtick = None
+    if chart_display_ticks == "auto":
+        days = delta.days
+        if days < 1.5 * 365.25:
+            selected_dtick = "604800000"  # Weekly (milliseconds)
+        elif days < 5 * 365.25:
+            selected_dtick = "M1"         # Monthly
+        else:
+            selected_dtick = "M12"        # Yearly
+    elif chart_display_ticks == "weekly":
+        selected_dtick = "604800000"
+    elif chart_display_ticks == "monthly":
+        selected_dtick = "M1"
+    elif chart_display_ticks == "yearly":
+        selected_dtick = "M12"
+
+    if selected_dtick:
+        # Apply specifically to the x-axis tick frequency
+        fig.update_xaxes(dtick=selected_dtick)
+
