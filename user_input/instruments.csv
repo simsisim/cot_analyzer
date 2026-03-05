@@ -1,18 +1,18 @@
 enabled,name,cftc_code,asset_class,lookback_override,report_type_override,ticker,description,notes
 #--- METALS ---,,,,,,,,
 True,GC - Gold,88691,Metal,,,GC=F,Gold Futures (COMEX),Primary LW metals instrument. Commercials = miners/producers who hedge by shorting. WillCo 100% = miners covering shorts = bullish.
-True,SI - Silver,84691,Metal,,,SI=F,Silver Futures (COMEX),Similar dynamics to Gold. Often follows Gold but with higher volatility.
-True,HG - Copper,85692,Metal,,,HG=F,Copper Futures (COMEX),Industrial metal. Good economic cycle indicator. Commercials = manufacturers/processors.
-True,PL - Platinum,76651,Metal,,,PL=F,Platinum Futures (NYMEX),Smaller market than Gold/Silver. Useful for precious metals divergence analysis.
-True,PA - Palladium,75651,Metal,,,PA=F,Palladium Futures (NYMEX),Small market. Used in catalytic converters. Can have high volatility.
+False,SI - Silver,84691,Metal,,,SI=F,Silver Futures (COMEX),Similar dynamics to Gold. Often follows Gold but with higher volatility.
+False,HG - Copper,85692,Metal,,,HG=F,Copper Futures (COMEX),Industrial metal. Good economic cycle indicator. Commercials = manufacturers/processors.
+False,PL - Platinum,76651,Metal,,,PL=F,Platinum Futures (NYMEX),Smaller market than Gold/Silver. Useful for precious metals divergence analysis.
+False,PA - Palladium,75651,Metal,,,PA=F,Palladium Futures (NYMEX),Small market. Used in catalytic converters. Can have high volatility.
 False,MGC - Micro Gold,88695,Metal,,,,Micro Gold Futures (COMEX),Same COT data as GC Gold. Set to False to avoid duplicate analysis.
-True,ALI - Aluminum,191651,Metal,,,ALI=F,Aluminum Futures (COMEX),Industrial metal. Set to True if trading aluminum.
+False,ALI - Aluminum,191651,Metal,,,ALI=F,Aluminum Futures (COMEX),Industrial metal. Set to True if trading aluminum.
 #--- ENERGY ---,,,,,,,,
-True,CL - Crude Oil,67651,Energy,,,CL=F,Crude Oil WTI Futures (NYMEX),High open interest. Commercials = refiners and oil companies.
-True,NG - Natural Gas,23651,Energy,,,NG=F,Natural Gas Futures (NYMEX),Seasonal patterns are especially important for Natural Gas.
+False,CL - Crude Oil,67651,Energy,,,CL=F,Crude Oil WTI Futures (NYMEX),High open interest. Commercials = refiners and oil companies.
+False,NG - Natural Gas,23651,Energy,,,NG=F,Natural Gas Futures (NYMEX),Seasonal patterns are especially important for Natural Gas.
 #--- EQUITY INDICES ---,,,,,,,,
-True,NQ - Nasdaq-100,209742,Index,,,NQ=F,E-mini Nasdaq-100 Futures (CME),For indices use Financial report type for better breakdown (Dealers vs Leveraged Funds). Override via report_type_override.
-False,ES - S&P 500,13874A,Index,,,ES=F,E-mini S&P 500 Futures (CME),
+False,NQ - Nasdaq-100,209742,Index,,,NQ=F,E-mini Nasdaq-100 Futures (CME),For indices use Financial report type for better breakdown (Dealers vs Leveraged Funds). Override via report_type_override.
+True,ES - S&P 500,13874A,Index,,,ES=F,E-mini S&P 500 Futures (CME),
 False,YM - Dow Jones,124606,Index,,,YM=F,E-mini Dow Jones Futures (CME),
 False,RTY - Russell 2000,239742,Index,,,RTY=F,E-mini Russell 2000 Futures (CME),
 #--- BONDS ---,,,,,,,,

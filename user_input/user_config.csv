@@ -2,7 +2,7 @@ group,parameter,value,default,type,options,description,notes
 #--- GROUP 1: DATA SOURCE ---,,,,,,,
 1_data,report_type,Legacy,Legacy,string,Legacy | Disaggregated | Financial,Which CFTC COT report format to use,Legacy = recommended for all commodities and metals. Disaggregated = separates Managed Money from other Large Specs (hedge funds/CTAs). Financial = for currencies/bonds/indices (uses Dealer + Leveraged Funds).
 1_data,include_options,False,False,bool,True | False,Include options positions on top of futures positions,LW observed no significant difference. Keep False for cleaner analysis.
-1_data,data_years_history,8,5,int,1-40,How many years of historical data to load,More years = more accurate long-term percentile ranks but slower first load. Minimum 2 recommended. Historical data cached locally after first download.
+1_data,data_years_history,23,5,int,1-40,How many years of historical data to load,More years = more accurate long-term percentile ranks but slower first load. Minimum 2 recommended. Historical data cached locally after first download.
 1_data,cache_enabled,True,True,bool,True | False,Cache downloaded CFTC data locally to avoid re-downloading,Strongly recommended. Raw data saved as parquet files in data/cache/.
 1_data,auto_refresh,True,True,bool,True | False,Automatically download latest CFTC data when running (checks if current week is present),CFTC publishes every Friday at 3:30pm ET. Data reports Tuesday positions (3-day lag).
 #--- GROUP 2: ANALYSIS METHOD ---,,,,,,,
